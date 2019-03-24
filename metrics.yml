@@ -260,7 +260,7 @@ Resources:
 
             echo "Flagging fstab..."
             echo "# init done" >> /etc/fstab
-            
+
             echo "Mounting partitions..."
             mount -a
             swapon -a
@@ -272,6 +272,8 @@ Resources:
             local LOCAL_DIR="$1"
             local EXTERNAL_DIR="$DATA_MOUNTPOINT$LOCAL_DIR"
 
+            echo "external_dir(): $LOCAL_DIR --> $EXTERNAL_DIR"
+
             if readlink $LOCAL_DIR; then
               echo "$LOCAL_DIR is already a symlink."
               EXTERNAL_DIR_RESULT="false"
@@ -280,14 +282,16 @@ Resources:
                 echo "$EXTERNAL_DIR already exists, skipping move and removing $LOCAL_DIR..."
                 rm -rf "$LOCAL_DIR"
               else
+                echo "Current contents of $LOCAL_DIR:"
+                ls -lah "$LOCAL_DIR"
                 echo "Moving $LOCAL_DIR to $EXTERNAL_DIR..."
                 mkdir -p "$EXTERNAL_DIR"
                 shopt -s dotglob
-                mv "$LOCAL_DIR/*" "$EXTERNAL_DIR/"
+                mv $LOCAL_DIR/* "$EXTERNAL_DIR/"
                 rm -rf "$LOCAL_DIR"
               fi
               echo "Linking $EXTERNAL_DIR to $LOCAL_DIR..."
-              ln -s $EXTERNAL_DIR $LOCAL_DIR
+              ln -s "$EXTERNAL_DIR" "$LOCAL_DIR"
               EXTERNAL_DIR_RESULT="true"
             fi
           }
@@ -310,8 +314,16 @@ Resources:
             systemctl enable --now telegraf
             systemctl enable --now influxdb
             systemctl enable --now grafana-server
+
+            INSTANCE_REBUILD_SCRIPT="$DATA_MOUNTPOINT/instance-rebuild.sh"
+            if [ -x "$INSTANCE_REBUILD_SCRIPT" ]; then
+              echo "Executing instance rebuild script ($INSTANCE_REBUILD_SCRIPT)"
+              $INSTANCE_REBUILD_SCRIPT
+            else
+              echo "No instance rebuild script found ($INSTANCE_REBUILD_SCRIPT), skipping..."
+            fi
           else
-            echo "ERROR: $DATA_MOUNTPOINT is still not mounted. SITES WILL NOT WORK! YOU HAVE TO FIX THIS MANUALLY!"
+            echo "ERROR: $DATA_MOUNTPOINT is still not mounted. The instance is broken, you have to fix this manually."
           fi
 
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource EC2Instance --region ${AWS::Region}
