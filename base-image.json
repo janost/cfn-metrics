@@ -3,7 +3,7 @@
     "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
     "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
     "aws_region": "{{env `AWS_REGION`}}",
-    "ami_name": "metrics-{{timestamp}}"
+    "ami_name": "metrics-base-{{timestamp}}"
   },
 
   "builders": [{
@@ -42,7 +42,8 @@
     {
       "type": "shell",
       "inline": [
-        "sudo rm -rf /var/cache/apt/* && sudo apt-get update && sudo apt-get install -y python"
+        "timeout 180 /bin/bash -c 'until stat /var/lib/cloud/instance/boot-finished 2>/dev/null; do echo waiting for cloud-init to finish...; sleep 1; done'",
+        "sudo apt-get update && sudo apt-get install -y python"
       ]
     },
     {
