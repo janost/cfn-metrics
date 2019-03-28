@@ -10,6 +10,9 @@ Metadata:
       - Label:
           default: EC2 instance
         Parameters: [CreateEC2Instance, AttachDataVolume, InstanceType, InstanceAMI, KeyName, EC2InstanceRootDiskSize, InstanceDataDiskSize, EC2InstanceSwapDiskSize]
+      - Label:
+          default: Other settings
+        Parameters: [EncryptResources]
 
 Parameters:
   InstanceAZ:
@@ -55,10 +58,16 @@ Parameters:
     Type: String
     AllowedValues: [true, false]
     Default: true
+  EncryptResources:
+    Description: Enable encryption on resources which support it. DO NOT CHANGE THIS ON AN ALREADY RUNNING STACK!
+    Type: String
+    AllowedValues: [true, false]
+    Default: true
 
 Conditions:
   cAttachDataVolume: !And [ !Equals [ !Ref CreateEC2Instance, true ], !Equals [ !Ref AttachDataVolume, true ] ]
   cCreateEC2Instance: !Equals [ !Ref CreateEC2Instance, true ]
+  cEncryptResources: !Equals [ !Ref EncryptResources, true ]
 
 Resources:
   MainVPC:
@@ -122,8 +131,8 @@ Resources:
     Properties:
       AvailabilityZone: !Ref InstanceAZ
       VolumeType: gp2
-      Encrypted: true
-      KmsKeyId: !GetAtt EncryptionKey.Arn
+      Encrypted: !If [ cEncryptResources, true, false ]
+      KmsKeyId: !If [ cEncryptResources, !GetAtt EncryptionKey.Arn, !Ref 'AWS::NoValue' ]
       Size: !Ref InstanceDataDiskSize
       Tags:
         - Key: Name
@@ -193,13 +202,13 @@ Resources:
         - DeviceName: '/dev/sda1'
           Ebs:
             VolumeType: gp2
-            Encrypted: true
+            Encrypted: !If [ cEncryptResources, true, false ]
             DeleteOnTermination: true
             VolumeSize: !Ref EC2InstanceRootDiskSize
         - DeviceName: '/dev/xvds'
           Ebs:
             VolumeType: gp2
-            Encrypted: true
+            Encrypted: !If [ cEncryptResources, true, false ]
             DeleteOnTermination: true
             VolumeSize: !Ref EC2InstanceSwapDiskSize
       Tags:
@@ -445,6 +454,7 @@ Resources:
       InstanceId: !Ref EC2Instance
 
   EncryptionKey:
+    Condition: cEncryptResources
     Type: AWS::KMS::Key
     Properties:
       Description: This key is used to encrypt the RDS database and EBS volumes of the web stack.
@@ -468,6 +478,7 @@ Resources:
             Resource: "*"
 
   EncryptionKeyAlias:
+    Condition: cEncryptResources
     Type: AWS::KMS::Alias
     Properties:
       AliasName: !Join ['', ['alias/', !Ref 'AWS::StackName', '-key']]
