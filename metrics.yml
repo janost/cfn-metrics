@@ -190,7 +190,7 @@ Resources:
       KeyName: !Ref KeyName
       IamInstanceProfile: !Ref EC2InstanceProfile
       BlockDeviceMappings:
-        - DeviceName: '/dev/xvda'
+        - DeviceName: '/dev/sda1'
           Ebs:
             VolumeType: gp2
             Encrypted: true
